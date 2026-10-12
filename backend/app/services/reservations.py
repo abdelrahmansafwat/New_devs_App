@@ -14,24 +14,35 @@ async def calculate_monthly_revenue(property_id: str, tenant_id: str, month: int
         end_date = datetime(year, month + 1, 1, tzinfo=tz)
     else:
         end_date = datetime(year + 1, 1, 1, tzinfo=tz)
-        
-    print(f"DEBUG: Querying revenue for {property_id} from {start_date} to {end_date}")
 
-    # SQL Simulation (This would be executed against the actual DB)
-    query = """
+    from sqlalchemy import text
+
+    query = text("""
         SELECT SUM(total_amount) as total
         FROM reservations
-        WHERE property_id = $1
-        AND tenant_id = $2
-        AND check_in_date >= $3
-        AND check_in_date < $4
-    """
-    
-    # In production this query executes against a database session.
-    # result = await db.fetch_val(query, property_id, tenant_id, start_date, end_date)
-    # return result or Decimal('0')
-    
-    return Decimal('0') # Placeholder for now until DB connection is finalized
+        WHERE property_id = :property_id
+        AND tenant_id = :tenant_id
+        AND check_in_date >= :start_date
+        AND check_in_date < :end_date
+    """)
+    params = {
+        "property_id": property_id,
+        "tenant_id": tenant_id,
+        "start_date": start_date,
+        "end_date": end_date
+    }
+
+    if db_session is not None:
+        result = await db_session.scalar(query, params)
+    else:
+        from app.core.database_pool import DatabasePool
+
+        db_pool = DatabasePool()
+        await db_pool.initialize()
+        async with db_pool.get_session() as session:
+            result = await session.scalar(query, params)
+
+    return result or Decimal('0')
 
 async def calculate_total_revenue(property_id: str, tenant_id: str) -> Dict[str, Any]:
     """
