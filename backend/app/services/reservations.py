@@ -101,3 +101,21 @@ async def calculate_total_revenue(property_id: str, tenant_id: str) -> Dict[str,
     except Exception as e:
         print(f"Database error for {property_id} (tenant: {tenant_id}): {e}")
         raise
+
+async def get_tenant_properties(tenant_id: str) -> List[Dict[str, Any]]:
+    """
+    Lists the properties that belong to a tenant.
+    """
+    from app.core.database_pool import DatabasePool
+    from sqlalchemy import text
+
+    db_pool = DatabasePool()
+    await db_pool.initialize()
+    async with db_pool.get_session() as session:
+        result = await session.execute(text("""
+            SELECT id, name
+            FROM properties
+            WHERE tenant_id = :tenant_id
+            ORDER BY id
+        """), {"tenant_id": tenant_id})
+        return [{"id": row.id, "name": row.name} for row in result]
